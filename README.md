@@ -1,6 +1,14 @@
 # m5_display_ticker_bitflyer
 M5StackにBitflyerティッカーを表示する
 
+## 使い方
+
+プロビジョニングツール`ESP BLE Provisioning`([Android](https://play.google.com/store/apps/details?id=com.espressif.provble)/[iOS](https://apps.apple.com/in/app/esp-ble-provisioning/id1473590141))をスマートフォンにインストールし、M5Stackに表示されるQRコードを読み取りWiFi設定を行ってください。
+
+WiFi接続に成功するとティッカー情報が表示されます。
+
+WiFi設定をやり直したい場合、Aボタンを長押ししてください。M5Stackに保存されたWiFi設定がクリアされ再度QRコードが表示されます。
+
 ## ビルド環境
 
 [arduino-cli](https://arduino.github.io/arduino-cli/0.19/installation/)をインストールする。
