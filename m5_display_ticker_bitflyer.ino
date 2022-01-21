@@ -252,6 +252,8 @@ char provisioning_pop[16];
 void setup()
 {
     M5.begin();
+    M5.Speaker.end();
+
 #ifdef ARDUINO_M5STACK_Core2
     M5.Axp.SetLcdVoltage(3100);
 #endif
