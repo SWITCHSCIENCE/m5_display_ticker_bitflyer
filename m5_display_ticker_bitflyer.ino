@@ -252,13 +252,13 @@ char provisioning_pop[16];
 void setup()
 {
     M5.begin();
-    M5.Speaker.end();
-
 #ifdef ARDUINO_M5STACK_Core2
     M5.Axp.SetLcdVoltage(3100);
+    M5.Axp.SetSpkEnable(false);
 #endif
 #ifdef ARDUINO_M5Stack_Core_ESP32
     M5.Power.begin();
+    M5.Speaker.end();
 #endif
 
     if (!SPIFFS.begin(false))
