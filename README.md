@@ -9,7 +9,7 @@ M5Stack Basic/Core2 にBitflyerティッカーを表示する
 
 WiFi接続に成功するとティッカー情報が表示されます。
 
-WiFi設定をやり直したい場合、Aボタンを長押ししてください。M5Stackに保存されたWiFi設定がクリアされ再度QRコードが表示されます。
+WiFi設定をやり直したい場合、左端のボタンを長押し（Basci）または左端の赤〇をしばらくタッチ（Core2）してください。M5Stackに保存されたWiFi設定がクリアされ再度QRコードが表示されます。
 
 ## ビルド環境
 
@@ -21,7 +21,7 @@ $ curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/instal
 初期設定ファイルを作成する。
 ```sh
 $ arduino-cli config init
-Config file written to: /home/yusuke/.arduino15/arduino-cli.yaml
+Config file written to: ~/.arduino15/arduino-cli.yaml
 ```
 ボードマネージャのURLを追加する。
 ```
@@ -61,15 +61,39 @@ $ wget https://raw.githubusercontent.com/espressif/esp-idf/d95b15c55740b417d1a93
 ### M5Stack Basic (No OTA)
 ```sh
 $ ./spiffsgen.py 2031616 data/ data_Basic.spiffs.bin
-$ python "/home/yusuke/.arduino15/packages/esp32/tools/esptool_py/3.1.0/esptool.py" --chip esp32 --port "/dev/ttyS8" --baud 921600  --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size detect 0x210000 data_Basic.spiffs.bin
-$ arduino-cli compile -b m5stack:esp32:m5stack-core-esp32 -v --build-property build.partitions=no_ota
+$ python ~/.arduino15/packages/m5stack/tools/esptool_py/3.1.0/esptool.py --chip esp32 --port "/dev/ttyS8" --baud 921600  --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size detect 0x210000 data_Basic.spiffs.bin
+$ arduino-cli compile -b m5stack:esp32:m5stack-core-esp32 -v --build-property build.partitions=no_ota --build-property upload.maximum_size=2097152
 $ arduino-cli upload  -b m5stack:esp32:m5stack-core-esp32 -v -p /dev/ttyS8
 ```
 
 ### M5Stack Core2 (Default)
 ```sh
 $ ./spiffsgen.py 3604480 data/ data_Core2.spiffs.bin
-$ python "/home/yusuke/.arduino15/packages/esp32/tools/esptool_py/3.1.0/esptool.py" --chip esp32 --port "/dev/ttyS9" --baud 921600  --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size detect 0xc90000 data_Core2.spiffs.bin
+$ python ~/.arduino15/packages/m5stack/tools/esptool_py/3.1.0/esptool.py --chip esp32 --port "/dev/ttyS9" --baud 921600  --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size detect 0xc90000 data_Core2.spiffs.bin
 $ arduino-cli compile -b m5stack:esp32:m5stack-core2 -v
 $ arduino-cli upload  -b m5stack:esp32:m5stack-core2 -v -p /dev/ttyS9
+```
+
+## リリースファイル作成
+
+M5Stack Basic用バイナリを`release/basic`ディレクトリにエクスポートする。
+```sh
+$ arduino-cli compile -b m5stack:esp32:m5stack-core-esp32 -v --output-dir release/basic --build-property build.partitions=no_ota --build-property  upload.maximum_size=2097152
+$ cp data_Basic.spiffs.bin release/basic/data.spiffs.bin
+$ cp ~/.arduino15/packages/m5stack/hardware/esp32/2.0.2/tools/partitions/boot_app0.bin release/basic/boot_app0.bin
+$ rm release/basic/*.map release/basic/*.elf
+```
+
+M5Stack Core2用バイナリを`release/core2`ディレクトリにエクスポートする。
+```sh
+$ arduino-cli compile -b m5stack:esp32:m5stack-core2 -v --output-dir release/core2
+$ cp data_Core2.spiffs.bin release/core2/data.spiffs.bin
+$ cp ~/.arduino15/packages/m5stack/hardware/esp32/2.0.2/tools/partitions/boot_app0.bin release/core2/boot_app0.bin
+$ rm release/core2/*.map release/core2/*.elf
+```
+
+`zip`で固める。
+```sh
+$ cd release
+$ zip -r ../packages/m5_display_ticker_bitflyer_for_m5stack.zip *
 ```
