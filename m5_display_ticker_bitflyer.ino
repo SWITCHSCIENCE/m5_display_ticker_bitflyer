@@ -44,6 +44,8 @@ WebsocketsClient client;
 DynamicJsonDocument doc(1024);
 
 TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
+TFT_eSprite canvas2 = TFT_eSprite(&M5.Lcd);
+int ticker_style = 0;
 
 #define MAKE_COLOR(r, g, b) (((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
 #define BACKGROUND MAKE_COLOR(27, 31, 39)
@@ -59,6 +61,10 @@ TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
 
 #define BOLD_FONT "RobotoMono-BoldItalic22"
 #define BOLD_SPACEWIDTH 13
+
+#define LARGE_FONT "RobotoMono-Regular32"
+#define LARGE_SPACEWIDTH 19
+#define LARGE_HIGH 35
 
 #define ROW_H 26
 #define BASE_OFS 3
@@ -86,6 +92,8 @@ void onMessageCallback(WebsocketsMessage message)
     // Serial.print("Got Message: ");
     // Serial.println(message.data());
 
+    // long t1 = micros();
+
     DeserializationError error = deserializeJson(doc, message.data());
     if (error)
     {
@@ -99,21 +107,45 @@ void onMessageCallback(WebsocketsMessage message)
     static long fx_btc_jpy_ltp = 0;
     static long btc_jpy_ltp = 0;
 
+    // long t2 = micros();
+
     if (strncmp(params_channel, "lightning_ticker_FX_BTC_JPY", sizeof("lightning_ticker_FX_BTC_JPY")) == 0)
     {
-        drawTicker(params_message, canvas, 0, ROW_H * 0);
-        fx_btc_jpy_ltp = long(params_message["ltp"]);
+        long ltp = long(params_message["ltp"]);
+        if (ticker_style == 0)
+        {
+            drawTicker2(params_message, ltp - fx_btc_jpy_ltp, 0, ROW_H * 0);
+        }
+        else
+        {
+            drawTicker(params_message, 0, ROW_H * 0);
+        }
+        fx_btc_jpy_ltp = ltp;
     }
     else if (strncmp(params_channel, "lightning_ticker_BTC_JPY", sizeof("lightning_ticker_BTC_JPY")) == 0)
     {
-        drawTicker(params_message, canvas, 0, ROW_H * 4);
-        btc_jpy_ltp = long(params_message["ltp"]);
+        long ltp = long(params_message["ltp"]);
+        if (ticker_style == 0)
+        {
+            drawTicker2(params_message, ltp - btc_jpy_ltp, 0, ROW_H * 4);
+        }
+        else
+        {
+            drawTicker(params_message, 0, ROW_H * 4);
+        }
+        btc_jpy_ltp = ltp;
     }
+
+    // long t3 = micros();
+
     if (btc_jpy_ltp > 0 && fx_btc_jpy_ltp > 0)
     {
         float disparity = ((float)fx_btc_jpy_ltp / (float)btc_jpy_ltp - 1) * 100.0;
-        drawDisparity(disparity, canvas, 0, ROW_H * 8);
+        drawDisparity(disparity, 0 + REG_SPACEWIDTH * 10, ROW_H * 8);
     }
+
+    // long t4 = micros();
+    // Serial.printf("%8d %8d %8d\n", t2 - t1, t3 - t2, t4 - t3);
 }
 
 void onEventsCallback(WebsocketsEvent event, String data)
@@ -141,7 +173,43 @@ void onEventsCallback(WebsocketsEvent event, String data)
     }
 }
 
-void drawTicker(JsonObject ticker, TFT_eSprite &spr, int ofx, int ofy)
+void drawTicker(JsonObject ticker, int ofx, int ofy)
+{
+    long ltp = long(ticker["ltp"]);
+    long best_ask = long(ticker["best_ask"]);
+    long best_bid = long(ticker["best_bid"]);
+    long spread = best_ask - best_bid;
+    float best_ask_size = float(ticker["best_ask_size"]);
+    float best_bid_size = float(ticker["best_bid_size"]);
+    float volume = float(ticker["volume"]);
+
+    canvas.fillScreen(BACKGROUND);
+    canvas.drawLine(0, ROW_H - 1, canvas.width(), ROW_H - 1, BORDER_COLOR);
+    canvas.setTextColor(NORMAL_TEXT_COLOR, BACKGROUND);
+    canvas.setCursor(0, BASE_OFS);
+    canvas.printf("%8dBTC", long(volume));
+    canvas.pushSprite(VOL24_X + ofx, VOL24_Y + ofy);
+
+    canvas.fillScreen(BACKGROUND);
+    canvas.setTextColor(ASK_TEXT_COLOR, BACKGROUND);
+    canvas.setCursor(0, BASE_OFS);
+    canvas.printf("%7.3f%8d", best_ask_size, best_ask);
+    canvas.pushSprite(ASK_X + ofx, ASK_Y + ofy);
+
+    canvas.fillScreen(BACKGROUND);
+    canvas.setTextColor(NORMAL_TEXT_COLOR, BACKGROUND);
+    canvas.setCursor(0, BASE_OFS);
+    canvas.printf("%8d%7d", ltp, spread);
+    canvas.pushSprite(LTP_X + ofx, LTP_Y + ofy);
+
+    canvas.fillScreen(BACKGROUND);
+    canvas.setTextColor(BID_TEXT_COLOR, BACKGROUND);
+    canvas.setCursor(0, BASE_OFS);
+    canvas.printf("%8d%7.3f", best_bid, best_bid_size);
+    canvas.pushSprite(BID_X + ofx, BID_Y + ofy);
+}
+
+void drawTicker2(JsonObject ticker, long diff, int ofx, int ofy)
 {
     //  Serial.println(long(ticker["ltp"]));
     //  Serial.println(long(ticker["best_ask"]));
@@ -151,53 +219,58 @@ void drawTicker(JsonObject ticker, TFT_eSprite &spr, int ofx, int ofy)
     long best_ask = long(ticker["best_ask"]);
     long best_bid = long(ticker["best_bid"]);
     long spread = best_ask - best_bid;
-    float best_ask_size = float(ticker["best_ask_size"]);
-    float best_bid_size = float(ticker["best_bid_size"]);
     float volume = float(ticker["volume"]);
-    // const char *product_code = ticker["product_code"];
 
-    spr.fillScreen(BACKGROUND);
-    spr.drawLine(0, ROW_H - 1, spr.width(), ROW_H - 1, BORDER_COLOR);
+    canvas.fillScreen(BACKGROUND);
+    canvas.drawLine(0, ROW_H - 1, canvas.width(), ROW_H - 1, BORDER_COLOR);
+    canvas.setTextColor(NORMAL_TEXT_COLOR, BACKGROUND);
+    canvas.setCursor(0, BASE_OFS);
+    canvas.printf("%8dBTC", long(volume));
+    canvas.pushSprite(VOL24_X + ofx, VOL24_Y + ofy);
 
-    // spr.loadFont(BOLD_FONT, SPIFFS);
-    // spr.gFont.spaceWidth = BOLD_SPACEWIDTH;
-    // spr.setTextColor(NORMAL_TEXT_COLOR, BACKGROUND);
-    // spr.setCursor(0, BASE_OFS);
-    // spr.print(product_code);
+    canvas.fillScreen(BACKGROUND);
+    canvas.setTextColor(ASK_TEXT_COLOR, BACKGROUND);
+    canvas.setCursor(0, BASE_OFS);
+    canvas.printf("%8d", best_ask);
+    canvas.pushSprite(REG_SPACEWIDTH * 14 + ofx, ASK_Y + ofy);
 
-    // spr.loadFont(REG_FONT, SPIFFS);
-    // spr.gFont.spaceWidth = REG_SPACEWIDTH;
-    spr.setTextColor(NORMAL_TEXT_COLOR, BACKGROUND);
-    spr.setCursor(0, BASE_OFS);
-    spr.printf("%8dBTC", long(volume));
-    spr.pushSprite(VOL24_X + ofx, VOL24_Y + ofy);
+    canvas.fillScreen(BACKGROUND);
+    canvas.setTextColor(NORMAL_TEXT_COLOR, BACKGROUND);
+    canvas.setCursor(0, BASE_OFS);
+    canvas.printf("%8d", spread);
+    canvas.pushSprite(REG_SPACEWIDTH * 14 + ofx, LTP_Y + ofy);
 
-    spr.fillScreen(BACKGROUND);
-    spr.setTextColor(ASK_TEXT_COLOR, BACKGROUND);
-    spr.setCursor(0, BASE_OFS);
-    spr.printf("%7.3f%8d", best_ask_size, best_ask);
-    spr.pushSprite(ASK_X + ofx, ASK_Y + ofy);
+    canvas.fillScreen(BACKGROUND);
+    canvas.setTextColor(BID_TEXT_COLOR, BACKGROUND);
+    canvas.setCursor(0, BASE_OFS);
+    canvas.printf("%8d", best_bid);
+    canvas.pushSprite(REG_SPACEWIDTH * 14 + ofx, BID_Y + ofy);
 
-    spr.fillScreen(BACKGROUND);
-    spr.setTextColor(NORMAL_TEXT_COLOR, BACKGROUND);
-    spr.setCursor(0, BASE_OFS);
-    spr.printf("%8d%7d", ltp, spread);
-    spr.pushSprite(LTP_X + ofx, LTP_Y + ofy);
-
-    spr.fillScreen(BACKGROUND);
-    spr.setTextColor(BID_TEXT_COLOR, BACKGROUND);
-    spr.setCursor(0, BASE_OFS);
-    spr.printf("%8d%7.3f", best_bid, best_bid_size);
-    spr.pushSprite(BID_X + ofx, BID_Y + ofy);
+    if (diff > 0)
+    {
+        canvas2.setTextColor(BID_TEXT_COLOR, BACKGROUND);
+    }
+    else if (diff < 0)
+    {
+        canvas2.setTextColor(ASK_TEXT_COLOR, BACKGROUND);
+    }
+    else
+    {
+        canvas2.setTextColor(NORMAL_TEXT_COLOR, BACKGROUND);
+    }
+    canvas2.fillScreen(BACKGROUND);
+    canvas2.setCursor(0, BASE_OFS);
+    canvas2.printf("%8d", ltp);
+    canvas2.pushSprite(LARGE_SPACEWIDTH + ofx, LTP_Y - 3 + ofy);
 }
 
-void drawDisparity(float disparity, TFT_eSprite &spr, int ofx, int ofy)
+void drawDisparity(float disparity, int ofx, int ofy)
 {
-    spr.fillScreen(BACKGROUND);
-    spr.setTextColor(NORMAL_TEXT_COLOR, BACKGROUND);
-    spr.setCursor(0, BASE_OFS);
-    spr.printf("Disparity:%.3f%%", disparity);
-    spr.pushSprite(ofx, ofy);
+    canvas.fillScreen(BACKGROUND);
+    canvas.setTextColor(NORMAL_TEXT_COLOR, BACKGROUND);
+    canvas.setCursor(0, BASE_OFS);
+    canvas.printf("%.3f%%", disparity);
+    canvas.pushSprite(ofx, ofy);
 }
 
 static void qrcode(const char *string, uint16_t x, uint16_t y, uint8_t width, uint8_t version, uint16_t bgcolor, uint16_t mkcolor)
@@ -274,28 +347,30 @@ void setup()
 
     if (wifi_is_provisioned())
     {
-        canvas.createSprite(320, ROW_H);
-        canvas.fillScreen(BACKGROUND);
-        canvas.loadFont(BOLD_FONT, SPIFFS);
-        canvas.gFont.spaceWidth = BOLD_SPACEWIDTH;
-        canvas.setTextColor(WHITE, BACKGROUND);
-        canvas.setCursor(0, BASE_OFS);
-        canvas.print("BTC-FX/JPY");
-        canvas.drawLine(0, ROW_H - 1, canvas.width(), ROW_H - 1, BORDER_COLOR);
-        canvas.pushSprite(0, 0);
+        M5.Lcd.setTextColor(WHITE, BACKGROUND);
+        M5.Lcd.setCursor(0, BASE_OFS + ROW_H * 8);
+        M5.Lcd.print("Disparity:");
 
-        canvas.fillScreen(BACKGROUND);
-        canvas.setCursor(0, BASE_OFS);
-        canvas.print("BTC/JPY");
-        canvas.drawLine(0, ROW_H - 1, canvas.width(), ROW_H - 1, BORDER_COLOR);
-        canvas.pushSprite(0, ROW_H * 4);
+        M5.Lcd.loadFont(BOLD_FONT, SPIFFS);
+        M5.Lcd.gFont.spaceWidth = BOLD_SPACEWIDTH;
+        M5.Lcd.setTextColor(WHITE, BACKGROUND);
 
-        canvas.fillScreen(BACKGROUND);
+        M5.Lcd.setCursor(0, BASE_OFS);
+        M5.Lcd.print("BTC-FX/JPY");
+        M5.Lcd.drawLine(0, ROW_H - 1, M5.Lcd.width(), ROW_H - 1, BORDER_COLOR);
+
+        M5.Lcd.setCursor(0, BASE_OFS + ROW_H * 4);
+        M5.Lcd.print("BTC/JPY");
+        M5.Lcd.drawLine(0, ROW_H * 5 - 1, M5.Lcd.width(), ROW_H * 5 - 1, BORDER_COLOR);
+        M5.Lcd.unloadFont();
+
+        canvas.createSprite(REG_SPACEWIDTH * 11, ROW_H * 1);
         canvas.loadFont(REG_FONT, SPIFFS);
         canvas.gFont.spaceWidth = REG_SPACEWIDTH;
-        canvas.setCursor(0, BASE_OFS);
-        canvas.print("Disparity:");
-        canvas.pushSprite(0, ROW_H * 8);
+
+        canvas2.createSprite(LARGE_SPACEWIDTH * 8, LARGE_HIGH);
+        canvas2.loadFont(LARGE_FONT, SPIFFS);
+        canvas2.gFont.spaceWidth = LARGE_SPACEWIDTH;
 
         // Connect to wifi
         WiFi.begin();
@@ -344,6 +419,26 @@ void loop()
             wifi_clear_credentials();
             delay(500);
             esp_restart();
+        }
+        if (M5.BtnB.wasReleased())
+        {
+            M5.Lcd.fillRect(0, ROW_H * 1, 320, ROW_H * 3, BACKGROUND);
+            M5.Lcd.fillRect(0, ROW_H * 5, 320, ROW_H * 3, BACKGROUND);
+            if (ticker_style == 0)
+            {
+                canvas.deleteSprite();
+                canvas2.deleteSprite();
+                canvas.createSprite(REG_SPACEWIDTH * 15, ROW_H * 1);
+                ticker_style = 1;
+            }
+            else
+            {
+                canvas.deleteSprite();
+                canvas2.deleteSprite();
+                canvas.createSprite(REG_SPACEWIDTH * 11, ROW_H * 1);
+                canvas2.createSprite(LARGE_SPACEWIDTH * 8, LARGE_HIGH);
+                ticker_style = 0;
+            }
         }
         if (WiFi.isConnected())
         {
