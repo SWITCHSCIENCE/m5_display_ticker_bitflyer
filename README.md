@@ -1,7 +1,7 @@
 # m5_display_ticker_bitflyer
 M5Stack Basic/Core2 にBitflyerティッカーを表示する
 
-![スクリーンショット](screenshot1.png "スクリーンショット1")
+![スクリーンショット](screenshot.png "スクリーンショット1")
 
 ![スクリーンショット](screenshot2.png "スクリーンショット2")
 
