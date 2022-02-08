@@ -7,11 +7,13 @@ M5Stack Basic/Core2 にBitflyerティッカーを表示する
 
 ## 使い方
 
-プロビジョニングツール`ESP BLE Provisioning`([Android](https://play.google.com/store/apps/details?id=com.espressif.provble)/[iOS](https://apps.apple.com/in/app/esp-ble-provisioning/id1473590141))をスマートフォンにインストールし、M5Stackに表示されるQRコードを読み取りWiFi設定を行ってください。
+プロビジョニングアプリ`ESP BLE Provisioning`([Android](https://play.google.com/store/apps/details?id=com.espressif.provble)/[iOS](https://apps.apple.com/in/app/esp-ble-provisioning/id1473590141))をスマートフォンにインストールし、M5Stackに表示されたQRコードをアプリで読み取り、無線LANの設定を行ってください。
 
-WiFi接続に成功するとティッカー情報が表示されます。
+無線LANの接続に成功するとティッカー情報が表示されます。
 
-WiFi設定をやり直したい場合、左端のボタンを長押し（Basci）または左端の赤〇をしばらくタッチ（Core2）してください。M5Stackに保存されたWiFi設定がクリアされ再度QRコードが表示されます。
+無線LANの設定をやり直したい場合、中央のボタン（Core2の場合は中央〇）を長押ししてください。無線LANの設定がクリアされ再度QRコードが表示されます。
+
+また左右のボタン（Core2の場合は左右の〇）で画面の明るさを調整できます。
 
 ## ビルド環境
 

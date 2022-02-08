@@ -80,7 +80,7 @@ static void wifi_prov_event(arduino_event_t *sys_event)
     case ARDUINO_EVENT_PROV_CRED_SUCCESS:
         drawProvMsg("Provisioning", "Successful");
         Serial.println("\nProvisioning Successful");
-        delay(3000);
+        delay(1500);
         esp_restart();
         break;
     case ARDUINO_EVENT_PROV_END:

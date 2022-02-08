@@ -10,6 +10,9 @@
 #include "utility/qrcode.h"
 #endif
 #include <Free_Fonts.h>
+#include <Preferences.h>
+
+Preferences pref;
 
 const char *wss_endpoint = "wss://ws.lightstream.bitflyer.com/json-rpc";
 const char wss_ca_cert[] =
@@ -45,7 +48,8 @@ DynamicJsonDocument doc(1024);
 
 TFT_eSprite canvas = TFT_eSprite(&M5.Lcd);
 TFT_eSprite canvas2 = TFT_eSprite(&M5.Lcd);
-int ticker_style = 0;
+int ticker_style;
+int brightness;
 
 #define MAKE_COLOR(r, g, b) (((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
 #define BACKGROUND MAKE_COLOR(27, 31, 39)
@@ -303,7 +307,7 @@ void drawProvQRcode(const char *service, const char *pop)
     static char msg[128];
     M5.Lcd.fillScreen(BACKGROUND);
     snprintf(msg, sizeof(msg), "{\"ver\":\"v1\",\"name\":\"%s\",\"pop\":\"%s\",\"transport\":\"ble\",\"security\":\"1\"}", service, pop);
-    qrcode(msg, 69, 0, 182, 6, BACKGROUND, WHITE);
+    qrcode(msg, 69, 0, 182, 5, BACKGROUND, WHITE);
     snprintf(msg, sizeof(msg), "%s/%s", service, pop);
     drawProvMsg("Provisioning started", msg);
 }
@@ -322,17 +326,52 @@ bool provisioning = false;
 char provisioning_service[16] = "PROV_123";
 char provisioning_pop[16];
 
+void setBrightness(int bright)
+{
+#ifdef ARDUINO_M5STACK_Core2
+#define BRIGHTNESS_MAX 5
+    static const int rawValues[] = {
+        2800,
+        2900,
+        3000,
+        3100,
+        3200,
+    };
+    M5.Axp.SetLcdVoltage(rawValues[bright]);
+#endif
+#ifdef ARDUINO_M5Stack_Core_ESP32
+#define BRIGHTNESS_MAX 5
+    static const uint8_t pwm[] = {
+        80,
+        120,
+        160,
+        200,
+        240,
+    };
+    M5.Lcd.setBrightness(pwm[bright]);
+#endif
+}
+
+#define DEFAULT_STYLE 0
+#define DEFAULT_BRIGHTNESS 1
+
 void setup()
 {
-    M5.begin();
+    M5.begin(true, false, true, false);
 #ifdef ARDUINO_M5STACK_Core2
-    M5.Axp.SetLcdVoltage(3100);
     M5.Axp.SetSpkEnable(false);
 #endif
 #ifdef ARDUINO_M5Stack_Core_ESP32
     M5.Power.begin();
     M5.Speaker.end();
 #endif
+    if (!pref.begin("settings", false))
+    {
+        Serial.println("Preferences init failed");
+    }
+    ticker_style = pref.getUShort("style", DEFAULT_STYLE);
+    brightness = pref.getUShort("bright", DEFAULT_BRIGHTNESS);
+    setBrightness(brightness);
 
     if (!SPIFFS.begin(false))
     {
@@ -364,11 +403,18 @@ void setup()
         M5.Lcd.drawLine(0, ROW_H * 5 - 1, M5.Lcd.width(), ROW_H * 5 - 1, BORDER_COLOR);
         M5.Lcd.unloadFont();
 
-        canvas.createSprite(REG_SPACEWIDTH * 11, ROW_H * 1);
+        if (ticker_style == 0)
+        {
+            canvas.createSprite(REG_SPACEWIDTH * 11, ROW_H * 1);
+            canvas2.createSprite(LARGE_SPACEWIDTH * 8, LARGE_HIGH);
+        }
+        else
+        {
+            canvas.createSprite(REG_SPACEWIDTH * 15, ROW_H * 1);
+        }
         canvas.loadFont(REG_FONT, SPIFFS);
         canvas.gFont.spaceWidth = REG_SPACEWIDTH;
 
-        canvas2.createSprite(LARGE_SPACEWIDTH * 8, LARGE_HIGH);
         canvas2.loadFont(LARGE_FONT, SPIFFS);
         canvas2.gFont.spaceWidth = LARGE_SPACEWIDTH;
 
@@ -395,13 +441,15 @@ void setup()
         // Before connecting, set the ssl fingerprint of the server
         client.setCACert(wss_ca_cert);
 
-        timer = timerBegin(0, 80, true);                 //timer 0, div 80
-        timerAttachInterrupt(timer, &resetModule, true); //attach callback
-        timerAlarmWrite(timer, 60 * 1000 * 1000, false); //set time in us
-        timerAlarmEnable(timer);                         //enable interrupt
+        timer = timerBegin(0, 80, true);                 // timer 0, div 80
+        timerAttachInterrupt(timer, &resetModule, true); // attach callback
+        timerAlarmWrite(timer, 60 * 1000 * 1000, false); // set time in us
+        timerAlarmEnable(timer);                         // enable interrupt
     }
     else
     {
+        WiFi.enableSTA(false);
+
         provisioning = true;
         snprintf(provisioning_pop, sizeof(provisioning_pop), "%04d", esp_random() % 10000);
         drawProvQRcode(provisioning_service, provisioning_pop);
@@ -411,10 +459,27 @@ void setup()
 
 void loop()
 {
+    M5.update();
+    if (M5.BtnA.wasPressed())
+    {
+        brightness = max(brightness - 1, 0);
+        setBrightness(brightness);
+        pref.putUShort("bright", brightness);
+    }
+    if (M5.BtnC.wasPressed())
+    {
+        brightness = min(brightness + 1, BRIGHTNESS_MAX - 1);
+        setBrightness(brightness);
+        pref.putUShort("bright", brightness);
+    }
     if (!provisioning)
     {
-        M5.update();
-        if (M5.BtnA.pressedFor(3000))
+        static uint32_t pressTime = 0;
+        if (M5.BtnB.wasPressed())
+        {
+            pressTime = millis();
+        }
+        if (M5.BtnB.isPressed() && millis() - pressTime > 3000)
         {
             wifi_clear_credentials();
             delay(500);
@@ -439,6 +504,7 @@ void loop()
                 canvas2.createSprite(LARGE_SPACEWIDTH * 8, LARGE_HIGH);
                 ticker_style = 0;
             }
+            pref.putUShort("style", ticker_style);
         }
         if (WiFi.isConnected())
         {
@@ -462,10 +528,6 @@ void loop()
                 }
             }
         }
-        delay(10);
     }
-    else
-    {
-        delay(1000);
-    }
+    delay(10);
 }
