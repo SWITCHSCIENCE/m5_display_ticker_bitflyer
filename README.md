@@ -99,5 +99,5 @@ $ rm release/core2/*.map release/core2/*.elf
 `zip`で固める。
 ```sh
 $ cd release
-$ zip -r ../packages/m5_display_ticker_bitflyer_for_m5stack.zip *
+$ zip -r ../packages/m5_display_ticker_bitflyer_for_m5stack-$(git describe).zip *
 ```
